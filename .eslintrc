@@ -1,0 +1,18 @@
+{
+  "extends": ["@coolh/eslint-config"],
+  "rules": {
+    "@typescript-eslint/explicit-module-boundary-types": "off",
+    "no-undefined": "off",
+    "eqeqeq": "off",
+    "@typescript-eslint/consistent-type-assertions": "off",
+    "react/prop-types": "off",
+    "react/display-name": "warn",
+    "max-params": [0, 6],
+    "no-undef": "off",
+    "@typescript-eslint/no-explicit-any": "off",
+    "react-hooks/exhaustive-deps": "off",
+    "semi": ["warn", "always"],
+    "prettier/prettier": "off",
+    "no-unused-vars": "warn"
+  }
+}

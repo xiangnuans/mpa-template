@@ -1,0 +1,24 @@
+.page-box-container(){
+  display: flex;
+  flex-direction: column;
+  background-color: #fff;
+  justify-content: flex-start;
+  margin-top: 24px;
+  box-shadow: 0px 6px 16px -8px rgba(0, 0, 0, 0.08),
+    0px 9px 28px 0px rgba(0, 0, 0, 0.05);
+  border-radius: 4px;
+  padding: 24px;
+  min-height: 660px;
+}
+
+// 提分王模块 antd table 样式调整
+.score-antd-table(){
+  :global {
+    // 去除 ant-table 组件的标题分割线
+    .ant-table-thead
+      > tr
+      > th:not(:last-child):not(.ant-table-selection-column):not(.ant-table-row-expand-icon-cell):not([colspan])::before {
+      width: 0;
+    }
+  }
+}
