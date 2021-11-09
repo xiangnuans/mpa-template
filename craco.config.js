@@ -1,25 +1,30 @@
 const path = require("path");
-// const WebpackBar = require("webpackbar");
 const fs = require("fs");
 const lessToJs = require("less-vars-to-js");
 const HtmlWebpackPlugin = require("html-webpack-plugin");
-const InlineChunkHtmlPlugin = require("react-dev-utils/InlineChunkHtmlPlugin");
+const CracoLessPlugin = require("craco-less");
+const { when, whenDev } = require("@craco/craco");
+const TsconfigPathsPlugin = require("tsconfig-paths-webpack-plugin");
+const { BundleAnalyzerPlugin } = require("webpack-bundle-analyzer");
+const TerserPlugin = require("terser-webpack-plugin");
+const fastRefreshCracoPlugin = require("craco-fast-refresh");
+
+const isBuildAnalyzer = process.env.BUILD_ANALYZER === "true";
 
 const readFile = (filename) => {
   if (!fs.existsSync(filename)) return false;
   return fs.readFileSync(filename, "utf8");
-};
+}；
 
 const configureWebpack = (webpackConfig, { env, paths }) => {
-  const isEnvDevelopment = env === "development";
-  const isEnvProduction = env === "production";
+  const isProd = process.env.NODE_ENV === "production";
   const mHtmlWebpackPlugin = (chunks, filename, template) => {
     return new HtmlWebpackPlugin({
       inject: true,
       template: template || paths.appHtml,
       chunks,
       filename,
-      ...(isEnvProduction
+      ...(isProd
         ? {
             minify: {
               removeComments: true,
@@ -56,20 +61,20 @@ const configureWebpack = (webpackConfig, { env, paths }) => {
   });
   webpackConfig.entry = {
     main: webpackConfig.entry,
+    lib: ["react", "react-dom"],
     ...entries,
   };
   webpackConfig.output = {
-    path: isEnvProduction ? paths.appBuild : undefined,
-    pathinfo: isEnvDevelopment,
-    filename: isEnvProduction
+    path: isProd ? paths.appBuild : undefined,
+    filename: isProd
       ? "static/js/[name].[contenthash:8].js"
       : "static/[name]/bundle.js",
     futureEmitAssets: true,
-    chunkFilename: isEnvProduction
+    chunkFilename: isProd
       ? "static/js/[name].[contenthash:8].chunk.js"
       : "static/js/[name].chunk.js",
-    publicPath: isEnvProduction ? paths.servedPath : "/",
-    devtoolModuleFilenameTemplate: isEnvProduction
+    publicPath: isProd ? paths.servedPath : "/",
+    devtoolModuleFilenameTemplate: isProd
       ? (info) =>
           path
             .relative(paths.appSrc, info.absoluteResourcePath)
@@ -77,49 +82,6 @@ const configureWebpack = (webpackConfig, { env, paths }) => {
       : (info) => path.resolve(info.absoluteResourcePath).replace(/\\/g, "/"),
     jsonpFunction: `webpackJsonp${paths.appPackageJson.name}`,
   };
-  webpackConfig.resolve.alias = {
-    src: path.resolve(__dirname, "./src"),
-    "@assets": "src/assets",
-    "@components": "src/components",
-    "@hooks": "src/hooks",
-    "@containers": "src/containers",
-    "@routes": "src/routes",
-    "@stores": "src/stores",
-    "@utils": "src/utils",
-    "@styles": "src/styles",
-  };
-  const oneOfRule = webpackConfig.module.rules.find((rule) => rule.oneOf);
-  const sassRuleIndex = oneOfRule.oneOf.findIndex(
-    (rule) => rule.test && rule.test.toString().includes("scss|sass")
-  );
-  const lessUse = [...oneOfRule.oneOf[sassRuleIndex].use];
-  lessUse[lessUse.length - 1] = {
-    loader: require.resolve("less-loader"),
-    options: {
-      lessOptions: {
-        sourceMap: isEnvDevelopment,
-        modifyVars: lessToJs(
-          readFile(path.resolve(__dirname, "src/styles/themes/index.less"))
-        ),
-        javascriptEnabled: true,
-      },
-    },
-  };
-  oneOfRule.oneOf.splice(sassRuleIndex, 0, {
-    exclude: /\.module\.(less)$/,
-    test: /\.less$/,
-    use: lessUse,
-  });
-  webpackConfig.externals = [
-    require("webpack-require-http"),
-    {
-      axios: "axios",
-      react: "React",
-      "react-dom": "ReactDOM",
-      bizcharts: "BizCharts",
-    },
-  ];
-
   const defaultHtmlWebpackPluginIndex = webpackConfig.plugins.findIndex(
     (plugin) => plugin instanceof HtmlWebpackPlugin
   );
@@ -129,42 +91,155 @@ const configureWebpack = (webpackConfig, { env, paths }) => {
     mHtmlWebpackPlugin(["main"], "index.html"),
     ...htmlWebpackPlugins
   );
-
-  if (isEnvDevelopment) {
-    webpackConfig.output.filename = "static/js/[name].bundle.js";
-  }
-  //共用runtime bundle
-  webpackConfig.optimization.runtimeChunk = "single";
-  const inlineChunkHtmlPluginIndex = webpackConfig.plugins.findIndex(
-    (plugin) => plugin instanceof InlineChunkHtmlPlugin
-  );
-  if (inlineChunkHtmlPluginIndex >= 0) {
-    webpackConfig.plugins.slice(inlineChunkHtmlPluginIndex, 1);
-  }
-
-  // console.log("webpackConfig = ", webpackConfig);
+  webpackConfig.resolve.extensions = [
+    ...webpackConfig.resolve.extensions,
+    ...[".scss", ".less"],
+  ];
+  webpackConfig.resolve.plugins = [
+    ...webpackConfig.resolve.plugins,
+    ...[
+      new TsconfigPathsPlugin({
+        extensions: [".ts", ".tsx", ".js", ".jsx"],
+        configFile: path.resolve(__dirname, "tsconfig.json"),
+      }),
+    ],
+  ];
+  webpackConfig.optimization.minimizer.map((plugin) => {
+    if (plugin instanceof TerserPlugin) {
+      Object.assign(plugin.options.terserOptions.compress, {
+        drop_debugger: shouldDropDebugger, // 删除 debugger
+        drop_console: shouldDropConsole, // 删除 console
+      });
+    }
+    return plugin;
+  });
+  webpackConfig.optimization.splitChunks = {
+    ...webpackConfig.optimization.splitChunks,
+    ...{
+      chunks: "all",
+      name: true,
+    },
+  };
+  webpackConfig.externals = {
+    react: "React",
+    "react-dom": "ReactDOM",
+  };
+  console.log(webpackConfig);
   return webpackConfig;
 };
 
 const configureDevServer = (devServerConfig, { env, paths }) => {
   devServerConfig.historyApiFallback = {
-    disableDotRule: true, //禁用，否则当访问/xxx.html时服务器会自动去掉.html重写url为/xxx
+    disableDotRule: true,
     index: paths.publicUrlOrPath,
     verbose: true,
   };
   if (env === "development") {
     devServerConfig.proxy = {
       "/auth": {
-        target: "https://xxx.cn",
+        target: "https://xxxx.cn",
         changeOrigin: true,
       },
     };
   }
   return devServerConfig;
 };
-module.exports = {
+
+const config = {
+  babel: {
+    loaderOptions: {
+      exclude: [
+        /node_modules[\\/]core-js/,
+        /node_modules[\\/]react-app-polyfill/,
+      ],
+    },
+    presets: [
+      [
+        "@babel/preset-env",
+        {
+          modules: false,
+          useBuiltIns: "entry",
+          corejs: {
+            version: 3,
+            proposals: true,
+          },
+        },
+      ],
+    ],
+    plugins: [
+      [
+        "import",
+        {
+          libraryName: "@leke/rc",
+          libraryDirectory: "es",
+          camel2DashComponentName: false,
+          style(name) {
+            return `${name}/index.less`.replace("/es/", "/style/");
+          },
+        },
+        "@leke/rc",
+      ],
+      [
+        "import",
+        {
+          libraryName: "antd",
+          style: true,
+        },
+        "antd",
+      ],
+    ],
+  },
+  plugins: [
+    ...whenDev(
+      () => [
+        {
+          plugin: fastRefreshCracoPlugin,
+        },
+      ],
+      []
+    ),
+    {
+      plugin: CracoLessPlugin,
+      options: {
+        modifyLessRule(lessRule) {
+          return {
+            ...lessRule,
+            ...{
+              test: /\.less$/,
+              exclude: /\.module\.less$/,
+            },
+          };
+        },
+        lessLoaderOptions: {
+          lessOptions: {
+            modifyVars: lessToJs(
+              readFile(path.resolve(__dirname, "src/styles/themes/index.less"))
+            ),
+            javascriptEnabled: true,
+          },
+        },
+      },
+    },
+    {
+      plugin: CracoLessPlugin,
+      options: {
+        modifyLessRule(lessRule) {
+          return {
+            ...lessRule,
+            ...{
+              test: /\.module\.less$/,
+              exclude: undefined,
+            },
+          };
+        },
+      },
+    },
+  ],
   webpack: {
+    plugins: [...when(isBuildAnalyzer, () => [new BundleAnalyzerPlugin()], [])],
     configure: configureWebpack,
   },
   devServer: configureDevServer,
 };
+
+module.exports = config;

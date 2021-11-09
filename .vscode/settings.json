@@ -12,5 +12,6 @@
   "editor.suggest.snippetsPreventQuickSuggestions": false,
   "alias-skip.mappings": {
     "@": "/src"
-  }
+  },
+  "eggHelper.serverPort": 63254
 }

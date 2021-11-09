@@ -15,7 +15,7 @@ const responseCode = {
   '服务器错误': 500,
 };
 
-const baseUrl = useMock ? options["mockUrl"] : options["backendUrl"];
+const baseUrl = options["backendUrl"];
 
 const parseData = (resp: any) => {
   try {
