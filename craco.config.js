@@ -8,13 +8,14 @@ const TsconfigPathsPlugin = require("tsconfig-paths-webpack-plugin");
 const { BundleAnalyzerPlugin } = require("webpack-bundle-analyzer");
 const TerserPlugin = require("terser-webpack-plugin");
 const fastRefreshCracoPlugin = require("craco-fast-refresh");
+const AntdDayjsWebpackPlugin = require("antd-dayjs-webpack-plugin");
 
 const isBuildAnalyzer = process.env.BUILD_ANALYZER === "true";
 
 const readFile = (filename) => {
   if (!fs.existsSync(filename)) return false;
   return fs.readFileSync(filename, "utf8");
-}；
+};
 
 const configureWebpack = (webpackConfig, { env, paths }) => {
   const isProd = process.env.NODE_ENV === "production";
@@ -124,7 +125,7 @@ const configureWebpack = (webpackConfig, { env, paths }) => {
     react: "React",
     "react-dom": "ReactDOM",
   };
-  console.log(webpackConfig);
+  // TODO
   return webpackConfig;
 };
 
@@ -190,6 +191,7 @@ const config = {
     ],
   },
   plugins: [
+    new AntdDayjsWebpackPlugin(),
     ...whenDev(
       () => [
         {
